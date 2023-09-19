@@ -1,5 +1,5 @@
 # autoSQL
-A repo focused on the efficient use of LLMs for generating SQL code from natural language prompts. Details regarding the `SQLData` class can be found [here](autosql/autosql/data/README.md).
+A repo focused on the efficient use of LLMs for generating SQL code from natural language prompts. Details regarding the `SQLData` class can be found [here](https://github.com/denverbaumgartner/autoSQL/tree/main/autoSQL/autosql/data).
 
 ### Directory 
 
