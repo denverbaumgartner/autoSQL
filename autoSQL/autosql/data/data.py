@@ -83,6 +83,17 @@ class SQLData:
 
         self.data[dataset_name] = dataset
 
+    def import_data(self, dataset_name: str, dataset: DatasetDict) -> None:
+        """Imports data into the class instance self.data = {"dataset_name": dataset}.
+        
+        :param dataset_name: The name of the dataset to import
+        :type dataset_name: str
+        :param dataset: The dataset to import
+        :type dataset: datasets.DatasetDict
+        """
+
+        self.data[dataset_name] = dataset
+
     #################################
     # Data Transformation Functions #
     #################################  
@@ -263,8 +274,9 @@ class SQLData:
         abstract_column_types: bool = True,
         identify_duplicate_create_table: bool = True,
         populate_data: bool = True,
-        validate_query: bool = True
-    ) -> None:
+        validate_query: bool = True,
+        update_class_dataset: bool = True,
+    ) -> Optional[Union[DatasetDict, None]]:
         """Preprocesses the data by applying the following functions to the dataset:
             - _blanket_answer_syntax(dataset)
             - _compute_table_count(dataset)
@@ -287,6 +299,8 @@ class SQLData:
         :type populate_data: bool, optional
         :param validate_query: Whether or not to validate the query against the provided filler data and returns the query result, defaults to True
         :type validate_query: bool, optional
+        :param update_class_dataset: Whether or not to update the class instance self.data = {"dataset_name": dataset}, defaults to True
+        :type update_class_dataset: bool, optional
         """
         
         if dataset_name not in self.data.keys():
@@ -319,7 +333,11 @@ class SQLData:
             logger.info(f"Preprocessing the dataset with the function validate_query(dataset).")
             dataset = dataset.map(SQLData.validate_query)
 
-        self.data[dataset_name] = dataset
+        if update_class_dataset:
+            self.data[dataset_name] = dataset
+            return None
+        else:
+            return dataset
 
     def filter_data(
         self, 
