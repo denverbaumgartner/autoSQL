@@ -5,19 +5,19 @@ from faker import Faker
 
 logger = logging.getLogger(__name__)
 
-class DataGenerator: 
-    """A helper class for generating data for the autoSQL dataset
-    """
+
+class DataGenerator:
+    """A helper class for generating data for the autoSQL dataset"""
 
     def __init__(self) -> None:
         """Initializes the class"""
-        
+
         self.fake = Faker()
 
     def __repr__(self):
         items = ("{}={!r}".format(k, self.__dict__[k]) for k in self.__dict__)
         return "{}({})".format(type(self).__name__, ", ".join(items))
-    
+
     #################################
     # Data Generation Functions     #
     #################################
@@ -39,7 +39,9 @@ class DataGenerator:
             logger.warning(f"Data type {data_type} is not supported. Returning None.")
             return None
 
-    def generate_filler_data(self, column_types, num_records=5) -> Dict[str, List[Dict[str, Union[str, int, None]]]]:
+    def generate_filler_data(
+        self, column_types, num_records=5
+    ) -> Dict[str, List[Dict[str, Union[str, int, None]]]]:
         """Generates filler data for a given set of column types. Currently only supports VARCHAR and INT data types.
 
         :param column_types: The column types to generate filler data for
@@ -51,14 +53,14 @@ class DataGenerator:
         """
 
         filler_data = {}
-        
+
         for table_name, columns in column_types.items():
             filler_data[table_name] = []
-            
+
             for _ in range(num_records):
                 record = {}
                 for column_name, data_type in columns.items():
                     record[column_name] = self.generate_random_data(data_type)
                 filler_data[table_name].append(record)
-        
-        return filler_data    
+
+        return filler_data
