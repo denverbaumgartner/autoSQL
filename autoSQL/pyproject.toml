@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "autosql"
+version = "0.1.0"
+description = "focused on the efficient use of LLMs for generating SQL code from natural language prompts"
+authors = ["denver <denverbaumgartner@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+replicate = "^0.13.0"
+datasets = "^2.14.5"
+sqlglot = "^18.5.1"
+faker = "^19.6.1"
+sqlparse = "^0.4.4"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.2"
+black = "^23.9.1"
+jupyter = "^1.0.0"
+sphinx = "^7.2.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
