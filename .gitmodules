@@ -1,0 +1,3 @@
+[submodule "cog-llama-template"]
+	path = cog-llama-template
+	url = https://github.com/denverbaumgartner/cog-llama-template.git
