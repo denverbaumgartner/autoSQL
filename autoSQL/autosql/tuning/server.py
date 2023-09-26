@@ -1,4 +1,5 @@
 import os
+import threading
 from dotenv import load_dotenv
 
 import replicate
@@ -15,32 +16,36 @@ app = Flask(__name__)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.json  # Assuming the incoming data is in JSON format
+    data = request.json
     print("Received webhook data:")
     print(data)
-    
-    # Process the webhook data here (e.g., save to a database, send notifications, etc.)
+
+    # Process the webhook data here 
 
     return jsonify({'message': 'Webhook received successfully'}), 200
 
-if __name__ == '__main__':
-
+def start_training():
     # Open a ngrok tunnel to the HTTP service
-    public_url = ngrok.connect(3000)
-    print("Public URL:", public_url)
-
-    # Start your local Flask server on port 3000
-    app.run(host='0.0.0.0', port=3000)
+    tunnel = ngrok.connect(3000)
+    print("Public URL:", tunnel.public_url)
 
     # Tune the model 
     training = replicate.trainings.create(
-        version= MODEL_VERSION, # "meta/llama-2-7b:bf0a2a692f015ee21527ed2668e338032c1f937b4fcfa1f217f5cd79bf33478c",
+        version= MODEL_VERSION,
         input={
-            "train_data": TRAINING_DATA, # "https://gist.githubusercontent.com/denverbaumgartner/85882b04c2f8e28aa05b68d9aea0f14f/raw/8f0a44682d6a84f243be2fc54acaa56d191c91ab/SAMSum_50_subset.jsonl",
+            "train_data": TRAINING_DATA,
             "num_train_epochs": 1,
         },
-        destination=MODEL_DESINATION, # "denverbaumgartner/llama2-summarizer", 
-        webhook=public_url
+        destination=MODEL_DESINATION,
+        webhook=tunnel.public_url
     )
 
     print("Training started:", training)
+
+if __name__ == '__main__':
+    # Start the training process in a separate thread
+    training_thread = threading.Thread(target=start_training)
+    training_thread.start()
+
+    # Start your local Flask server on port 3000
+    app.run(host='0.0.0.0', port=3000)
