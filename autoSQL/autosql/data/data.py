@@ -18,7 +18,7 @@ from sqlglot.errors import (
     OptimizeError,
 )
 
-from .helpers import DataGenerator
+from .helpers import DataGenerator, create_gist
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class SQLData:
 
         self.data = {}
         self.data_generator = DataGenerator()
+        self.uploaded_gists = {}
 
     def __repr__(self):
         items = ("{}={!r}".format(k, self.__dict__[k]) for k in self.__dict__)
@@ -367,6 +368,23 @@ class SQLData:
             return {"query_result": "SqlglotError", "valid_query": False}
         except Exception as e:
             return {"query_result": str(e), "valid_query": False}
+    
+    @staticmethod
+    def format_tuning_data(dataset) -> Dict[str, Dict[str, str]]:
+        """Formats the data to be used for tuning by converting the context, prompt, and answer to {"prompt": "context: <context>, question: <question>", "completion": <answer>}
+
+        :param dataset: The dataset to format
+        :type dataset: datasets.Dataset
+        :return: A dictionary containing the formatted data
+        :rtype: dict {"tuning_format": str}
+        """
+
+        formatted_data = {
+            "prompt": 'context: ' + dataset['context'] + ', question: ' + dataset['question'],
+            "completion": dataset['answer']
+        } # TODO: occassionally, a json character (\) will be added around quotation marks, which may impact the data quality. we should determine if this is resolved by the time we are ready to use this data for tuning
+
+        return {"tuning_format": json.dumps(formatted_data)}
 
     def preprocess_data(
         self,
@@ -524,3 +542,94 @@ class SQLData:
             return None
         else:
             return dataset
+        
+    #################################
+    # Data Loading Functions        #
+    #################################
+
+    def create_jsonl_object(
+        self, 
+        dataset_name: str,
+        dataset_type: str = 'train',
+    ) -> Optional[str]: 
+        """Creates a jsonl object from a dataset
+
+        :param dataset_name: The name of the dataset to create a jsonl object from
+        :type dataset_name: str
+        :param dataset_type: The type of dataset to create a jsonl object from, defaults to 'train'
+        :type dataset_type: str, optional
+        :return: A jsonl object
+        :rtype: Optional[str]
+        """
+        
+        if dataset_name not in self.data.keys():
+            logger.warning(
+                f"The dataset {dataset_name} has not been loaded. Load the dataset with the function load_data(dataset_name)."
+            )
+            # self.load_data(dataset_name) # TODO: #1
+            return 
+        
+        try:
+            dataset = self.data[dataset_name][dataset_type]
+        except Exception as e:
+            logger.error(f"An error occured while trying to load the dataset: {e}")
+            raise
+        
+        try:
+            dataset = dataset.map(SQLData.format_tuning_data)
+            jsonl_string = '\n'.join(dataset['tuning_format'])
+        except Exception as e:
+            logger.error(f"An error occured while trying to format the dataset: {e}")
+            raise
+
+        return jsonl_string
+
+    def upload_jsonl_gist(
+        self, 
+        dataset_name: str,
+        token: str,
+        filename: str, 
+        dataset_type: str = 'train',
+        description: str="", 
+        is_public: bool=True, 
+        store_url: bool=True,
+    ):
+        """Uploads a jsonl object to a gist
+
+        :param dataset_name: The name of the dataset to upload a jsonl object from
+        :type dataset_name: str
+        :param token: The GitHub token to use for authentication
+        :type token: str
+        :param filename: The name of the file to create
+        :type filename: str
+        :param dataset_type: The type of dataset to create a jsonl object from, defaults to 'train'
+        :type dataset_type: str, optional
+        :param description: The description of the gist, defaults to ""
+        :type description: str, optional
+        :param is_public: Whether or not the gist is public, defaults to True
+        :type is_public: bool, optional
+        """
+        
+        jsonl = self.create_jsonl_object(dataset_name, dataset_type)
+
+        if jsonl is None:
+            logger.error(f"An error occured while trying to create the jsonl object.")
+            return
+        
+        try:
+            response = create_gist(
+                token=token, 
+                filename=filename, 
+                content=jsonl, 
+                description=description, 
+                is_public=is_public
+            )
+            
+            if store_url:
+                self.uploaded_gists = response['files'][filename]['raw_url']
+            return response
+        
+        except Exception as e:
+            logger.error(f"An error occured while trying to create the gist: {e}")
+            return 
+
