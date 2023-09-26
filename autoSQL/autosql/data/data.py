@@ -1,5 +1,6 @@
 import json
 import logging
+from _decimal import Decimal
 from typing import Optional, Dict, List, Union
 
 from datasets import load_dataset, Dataset, DatasetDict
@@ -73,6 +74,24 @@ class SQLData:
         )
         return instance
 
+    @classmethod
+    def from_sql_create_context(
+        cls, subset: bool = False, subset_value: int = 1000
+    ) -> "SQLData":
+        """Creates a class instance from the b-mc2/sql-create-context dataset
+
+        :param subset: Whether or not to load a subset of the dataset, defaults to False
+        :type subset: bool, optional
+        :param subset_value: The number of records to load if subset=True, defaults to 1000
+        :type subset_value: int, optional
+        :return: A class instance
+        :rtype: SQLData
+        """
+
+        return cls.from_dataset(
+            dataset_name="b-mc2/sql-create-context", subset=subset, subset_value=subset_value
+        )
+
     #################################
     # Data Extraction Functions     #
     #################################
@@ -110,6 +129,57 @@ class SQLData:
 
         self.data[dataset_name] = dataset
 
+    def train_test_split(
+        self, 
+        dataset_name: str, 
+        new_dataset_name: Optional[str] = None,
+        test_size: float = 0.2, # TODO: decide if we want to require Decimal for precision, and then convert to float for the train_test_split function
+        shuffle: bool = True,
+        update_class_dataset: bool = False,
+        create_new_dataset: bool = True,
+    ) -> Optional[DatasetDict]:
+        """Splits the dataset into train and test sets
+
+        :param dataset_name: The name of the dataset to split
+        :type dataset_name: str
+        :param new_dataset_name: The name of the new dataset to create, defaults to None (i.e., dataset_name + "_train_test_split")
+        :type new_dataset_name: Optional[str], optional
+        :param test_size: The size of the test set, defaults to Decimal("0.2")
+        :type test_size: Decimal, optional
+        :param shuffle: Whether or not to shuffle the dataset before splitting, defaults to True
+        :type shuffle: bool, optional
+        :param update_class_dataset: Whether or not to update the class instance self.data = {"dataset_name": dataset}, defaults to False
+        :type update_class_dataset: bool, optional
+        :param create_new_dataset: Whether or not to create a new dataset, defaults to True
+        :type create_new_dataset: bool, optional
+        :return: The train and test sets
+        :rtype: Optional[DatasetDict]
+        """
+        
+        if dataset_name not in self.data.keys():
+            logger.warning(
+                f"The dataset {dataset_name} has not been loaded. Load the dataset with the function load_data(dataset_name)."
+            )
+            # self.load_data(dataset_name) # TODO: #1
+            return None
+        
+        try:
+            dataset = self.data[dataset_name]['train'].train_test_split(test_size=test_size, shuffle=shuffle)
+        except Exception as e:
+            logger.error(f"An error occured while trying to split the dataset: {e}")
+            raise
+
+        if create_new_dataset:
+            if new_dataset_name is None:
+                new_dataset_name = dataset_name + "_train_test_split"
+            self.data[new_dataset_name] = dataset
+        
+        if update_class_dataset:
+            self.data[dataset_name] = dataset
+            return None
+        else:
+            return dataset
+        
     #################################
     # Data Transformation Functions #
     #################################
