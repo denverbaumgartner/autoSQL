@@ -6,6 +6,9 @@ from typing import Optional, Dict, List, Union
 import openai
 from openai.openai_object import OpenAIObject
 
+import replicate
+from replicate import Client as rc
+
 import sqlglot
 from datasets import DatasetDict, Dataset
 
@@ -20,6 +23,7 @@ class SQLPredict:
     def __init__(
         self, 
         openai_api_key: str,
+        replicate_api_key: str,
     ) -> None:
         """Initialize the class"""
 
@@ -27,10 +31,60 @@ class SQLPredict:
 
         self.openai = openai
         self.prompts = Prompts()
+        self.rc = rc(replicate_api_key)
+
+        self.replicate_models = {}
+
+    @classmethod
+    def from_replicate_model(
+        cls,
+        openai_api_key: str,
+        replicate_api_key: str,
+        model_name: str,
+        model_id: str,
+    ) -> "SQLPredict":
+        """Initialize the class with a Replicate model
+        
+        :param openai_api_key: The OpenAI API key.
+        :type openai_api_key: str
+        :param replicate_api_key: The Replicate API key.
+        :type replicate_api_key: str
+        :param model_name: The name of the Replicate model.
+        :type model_name: str
+        :param model_id: The ID of the Replicate model.
+        :type model_id: str
+        :return: The initialized class.
+        :rtype: SQLPredict
+        """
+        
+        instance = cls(openai_api_key, replicate_api_key)
+        instance.replicate_models[model_name] = model_id
+
+        return instance
 
     def __repr__(self):
         items = ("{}={!r}".format(k, self.__dict__[k]) for k in self.__dict__)
         return "{}({})".format(type(self).__name__, ", ".join(items))
+    
+    #########################################
+    # Class Methods                         #
+    #########################################
+
+    def add_replicate_model(
+        self,
+        model_name: str,
+        model_id: str,
+    ) -> None:
+        """Adds a Replicate model to the class.
+        
+        :param model_name: The name of the Replicate model.
+        :type model_name: str
+        :param model_id: The ID of the Replicate model.
+        :type model_id: str
+        """
+
+        self.replicate_models[model_name] = model_id
+
 
     #########################################
     # Request Construction Methods          #
@@ -173,14 +227,56 @@ class SQLPredict:
     def openai_dataset_request(
         self, 
         dataset: Dataset,
-        #context_label: Optional[str] = "context",
-        #question_label: Optional[str] = "question",
-    ): 
-        
-        context = dataset['context']
-        question = dataset['question']
-        inference = self.openai_sql_request(user_context=context, user_question=question)
+    ): # -> Dict[str, OpenAIObject]: 
+        """Constructs a prompt to request a SQL query from OpenAI's API.
+
+        :param dataset: The dataset item to request.
+        :type dataset: Dataset
+        :return: The constructed SQL request.
+        :rtype: OpenAIObject
+        """
+        try:
+            context = dataset['context']
+            question = dataset['question']
+            inference = self.openai_sql_request(user_context=context, user_question=question)
+        except Exception as e:
+            logger.warning(f"OpenAI request failed with error: {e}")
 
         return {"openai_inference": inference}
     
+    def replicate_sql_request(
+        self, 
+        prompt: str,
+        model_name: str,
+    ) -> str:
+        """Constructs a prompt to request a SQL query from Replicate's API.
 
+        :param prompt: The prompt to use for the request.
+        :type prompt: str
+        :return: The constructed SQL request.
+        :rtype: str
+        """
+        
+        try: 
+            request = self.rc.run(
+                self.replicate_models[model_name],
+                input={"prompt": prompt},
+            )
+            return ''.join(item for item in request)
+        except Exception as e:
+            logger.warning(f"Replicate request failed with error: {e}")
+            raise e    
+        
+    def replicate_dataset_request(
+        self, 
+        dataset: Dataset,
+        model_name: Optional[str] = "llama_2_13b_sql",
+    ):
+        
+        # assumes the prompt is in the dataset, contained within 'tuning_format'
+        try:
+            prompt = json.loads(dataset['tuning_format'])['prompt']
+            inference = self.replicate_sql_request(prompt, model_name=model_name)
+            return {"replicate_inference": inference}
+        except Exception as e:
+            logger.warning(f"Replicate request failed with error: {e}")
