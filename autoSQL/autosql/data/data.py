@@ -1,5 +1,6 @@
 import json
 import logging
+from _decimal import Decimal
 from typing import Optional, Dict, List, Union
 
 from datasets import load_dataset, Dataset, DatasetDict
@@ -17,7 +18,7 @@ from sqlglot.errors import (
     OptimizeError,
 )
 
-from .helpers import DataGenerator
+from .helpers import DataGenerator, create_gist
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class SQLData:
 
         self.data = {}
         self.data_generator = DataGenerator()
+        self.uploaded_gists = {}
 
     def __repr__(self):
         items = ("{}={!r}".format(k, self.__dict__[k]) for k in self.__dict__)
@@ -72,6 +74,24 @@ class SQLData:
             dataset_name=dataset_name, subset=subset, subset_value=subset_value
         )
         return instance
+
+    @classmethod
+    def from_sql_create_context(
+        cls, subset: bool = False, subset_value: int = 1000
+    ) -> "SQLData":
+        """Creates a class instance from the b-mc2/sql-create-context dataset
+
+        :param subset: Whether or not to load a subset of the dataset, defaults to False
+        :type subset: bool, optional
+        :param subset_value: The number of records to load if subset=True, defaults to 1000
+        :type subset_value: int, optional
+        :return: A class instance
+        :rtype: SQLData
+        """
+
+        return cls.from_dataset(
+            dataset_name="b-mc2/sql-create-context", subset=subset, subset_value=subset_value
+        )
 
     #################################
     # Data Extraction Functions     #
@@ -110,6 +130,57 @@ class SQLData:
 
         self.data[dataset_name] = dataset
 
+    def train_test_split(
+        self, 
+        dataset_name: str, 
+        new_dataset_name: Optional[str] = None,
+        test_size: float = 0.2, # TODO: decide if we want to require Decimal for precision, and then convert to float for the train_test_split function
+        shuffle: bool = True,
+        update_class_dataset: bool = False,
+        create_new_dataset: bool = True,
+    ) -> Optional[DatasetDict]:
+        """Splits the dataset into train and test sets
+
+        :param dataset_name: The name of the dataset to split
+        :type dataset_name: str
+        :param new_dataset_name: The name of the new dataset to create, defaults to None (i.e., dataset_name + "_train_test_split")
+        :type new_dataset_name: Optional[str], optional
+        :param test_size: The size of the test set, defaults to Decimal("0.2")
+        :type test_size: Decimal, optional
+        :param shuffle: Whether or not to shuffle the dataset before splitting, defaults to True
+        :type shuffle: bool, optional
+        :param update_class_dataset: Whether or not to update the class instance self.data = {"dataset_name": dataset}, defaults to False
+        :type update_class_dataset: bool, optional
+        :param create_new_dataset: Whether or not to create a new dataset, defaults to True
+        :type create_new_dataset: bool, optional
+        :return: The train and test sets
+        :rtype: Optional[DatasetDict]
+        """
+        
+        if dataset_name not in self.data.keys():
+            logger.warning(
+                f"The dataset {dataset_name} has not been loaded. Load the dataset with the function load_data(dataset_name)."
+            )
+            # self.load_data(dataset_name) # TODO: #1
+            return None
+        
+        try:
+            dataset = self.data[dataset_name]['train'].train_test_split(test_size=test_size, shuffle=shuffle)
+        except Exception as e:
+            logger.error(f"An error occured while trying to split the dataset: {e}")
+            raise
+
+        if create_new_dataset:
+            if new_dataset_name is None:
+                new_dataset_name = dataset_name + "_train_test_split"
+            self.data[new_dataset_name] = dataset
+        
+        if update_class_dataset:
+            self.data[dataset_name] = dataset
+            return None
+        else:
+            return dataset
+        
     #################################
     # Data Transformation Functions #
     #################################
@@ -297,6 +368,23 @@ class SQLData:
             return {"query_result": "SqlglotError", "valid_query": False}
         except Exception as e:
             return {"query_result": str(e), "valid_query": False}
+    
+    @staticmethod
+    def format_tuning_data(dataset) -> Dict[str, Dict[str, str]]:
+        """Formats the data to be used for tuning by converting the context, prompt, and answer to {"prompt": "context: <context>, question: <question>", "completion": <answer>}
+
+        :param dataset: The dataset to format
+        :type dataset: datasets.Dataset
+        :return: A dictionary containing the formatted data
+        :rtype: dict {"tuning_format": str}
+        """
+
+        formatted_data = {
+            "prompt": '[INST] <<SYS>>\nContext contains the relevant SQL tables, respond with the SQL query that answers the Question.\n<</SYS>>\n\nContext: ' + dataset['context'] + '\n\nQuestion: ' + dataset['question'] + '[/INST]\n\n',
+            "completion": dataset['answer']
+        } # TODO: occassionally, a json character (\) will be added around quotation marks, which may impact the data quality. we should determine if this is resolved by the time we are ready to use this data for tuning
+
+        return {"tuning_format": json.dumps(formatted_data)}
 
     def preprocess_data(
         self,
@@ -454,3 +542,94 @@ class SQLData:
             return None
         else:
             return dataset
+        
+    #################################
+    # Data Loading Functions        #
+    #################################
+
+    def create_jsonl_object(
+        self, 
+        dataset_name: str,
+        dataset_type: str = 'train',
+    ) -> Optional[str]: 
+        """Creates a jsonl object from a dataset
+
+        :param dataset_name: The name of the dataset to create a jsonl object from
+        :type dataset_name: str
+        :param dataset_type: The type of dataset to create a jsonl object from, defaults to 'train'
+        :type dataset_type: str, optional
+        :return: A jsonl object
+        :rtype: Optional[str]
+        """
+        
+        if dataset_name not in self.data.keys():
+            logger.warning(
+                f"The dataset {dataset_name} has not been loaded. Load the dataset with the function load_data(dataset_name)."
+            )
+            # self.load_data(dataset_name) # TODO: #1
+            return 
+        
+        try:
+            dataset = self.data[dataset_name][dataset_type]
+        except Exception as e:
+            logger.error(f"An error occured while trying to load the dataset: {e}")
+            raise
+        
+        try:
+            dataset = dataset.map(SQLData.format_tuning_data)
+            jsonl_string = '\n'.join(dataset['tuning_format'])
+        except Exception as e:
+            logger.error(f"An error occured while trying to format the dataset: {e}")
+            raise
+
+        return jsonl_string
+
+    def upload_jsonl_gist(
+        self, 
+        dataset_name: str,
+        token: str,
+        filename: str, 
+        dataset_type: str = 'train',
+        description: str="", 
+        is_public: bool=True, 
+        store_url: bool=True,
+    ):
+        """Uploads a jsonl object to a gist
+
+        :param dataset_name: The name of the dataset to upload a jsonl object from
+        :type dataset_name: str
+        :param token: The GitHub token to use for authentication
+        :type token: str
+        :param filename: The name of the file to create
+        :type filename: str
+        :param dataset_type: The type of dataset to create a jsonl object from, defaults to 'train'
+        :type dataset_type: str, optional
+        :param description: The description of the gist, defaults to ""
+        :type description: str, optional
+        :param is_public: Whether or not the gist is public, defaults to True
+        :type is_public: bool, optional
+        """
+        
+        jsonl = self.create_jsonl_object(dataset_name, dataset_type)
+
+        if jsonl is None:
+            logger.error(f"An error occured while trying to create the jsonl object.")
+            return
+        
+        try:
+            response = create_gist(
+                token=token, 
+                filename=filename, 
+                content=jsonl, 
+                description=description, 
+                is_public=is_public
+            )
+            
+            if store_url:
+                self.uploaded_gists = response['files'][filename]['raw_url']
+            return response
+        
+        except Exception as e:
+            logger.error(f"An error occured while trying to create the gist: {e}")
+            return 
+
