@@ -4,11 +4,12 @@ from _decimal import Decimal
 from typing import Optional, Dict, List, Union
 
 import openai
-from openai import OpenAIObject
+from openai.openai_object import OpenAIObject
 
 import sqlglot
+from datasets import DatasetDict, Dataset
 
-from helper import Prompts
+from .helper import Prompts
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,11 @@ class SQLPredict:
         :rtype: Optional[str]
         """
 
-        response = response_object["choices"][0]["text"]
+        try:
+            response = response_object.choices[0].message
+        except Exception as e:
+            logger.warning(f"OpenAI response failed to parse with error: {e}")
+            return None
 
         if len(response.keys()) > 2: 
             logger.warning(f"OpenAI response has more than 2 keys: {response.keys()}")
@@ -115,7 +120,7 @@ class SQLPredict:
             sqlglot.parse(response["content"])
         except Exception as e:
             logger.warning(f"SQL query failed to parse with error: {e}")
-            raise None
+            return None
 
         return response["content"]
 
@@ -125,7 +130,7 @@ class SQLPredict:
         user_question: str,
         model: Optional[str] = "gpt-3.5-turbo", # TODO: consider using an enum for this
         system_context: Optional[str] = None,
-        validate_response: Optional[bool] = True,
+        validate_response: Optional[bool] = False,
     ) -> Optional[OpenAIObject]:
         """Constructs a prompt to request a SQL query from OpenAI's API.
         
@@ -142,22 +147,34 @@ class SQLPredict:
         :return: The constructed SQL request.
         :rtype: OpenAIObject
         """
-        
+
+        message = self._openai_sql_request_structure(user_context, user_question, system_context)
+
         try: 
-            request = openai.ChatCompletion.create(
+            request = self.openai.ChatCompletion.create(
                 model=model, 
-                message=self._openai_sql_request_structure(user_context, user_question, system_context),
+                messages=message,
             )
         except Exception as e:
             logger.warning(f"OpenAI request failed with error: {e}")
-            raise e
-
-        if request["choices"][0]["text"] == "":
-            logger.warning(f"OpenAI request failed with error: {e}")        
+            raise e    
 
         if validate_response:
             return self.openai_sql_response(request)
 
         return request
+    
+    def openai_dataset_request(
+        self, 
+        dataset: Dataset,
+        #context_label: Optional[str] = "context",
+        #question_label: Optional[str] = "question",
+    ): 
+        
+        context = dataset['context']
+        question = dataset['question']
+        inference = self.openai_sql_request(user_context=context, user_question=question)
+
+        return {"openai_inference": inference}
     
 
