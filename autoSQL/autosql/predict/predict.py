@@ -97,7 +97,8 @@ class SQLPredict:
     
     def openai_sql_response(
         self, 
-        response_object: OpenAIObject,
+        response_object: Union[OpenAIObject, Dict[str, str]],
+        atl: Optional[bool] = False,
     ) -> Optional[str]: 
         """Parses the response from OpenAI's API.
         
@@ -107,8 +108,11 @@ class SQLPredict:
         :rtype: Optional[str]
         """
 
+        if isinstance(response_object, OpenAIObject):
+            response_object = response_object.to_dict()
+
         try:
-            response = response_object.choices[0].message
+            response = response_object['openai_inference']['choices'][0]['message']
         except Exception as e:
             logger.warning(f"OpenAI response failed to parse with error: {e}")
             return None
@@ -116,11 +120,13 @@ class SQLPredict:
         if len(response.keys()) > 2: 
             logger.warning(f"OpenAI response has more than 2 keys: {response.keys()}")
 
-        try: 
-            sqlglot.parse(response["content"])
-        except Exception as e:
-            logger.warning(f"SQL query failed to parse with error: {e}")
-            return None
+        if atl:
+            try: 
+                sqlglot.parse(response["content"])
+                return response["content"]
+            except Exception as e:
+                logger.warning(f"SQL query failed to parse with error: {e}")
+                return None
 
         return response["content"]
 
