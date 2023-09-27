@@ -272,6 +272,13 @@ class SQLPredict:
         dataset: Dataset,
         model_name: Optional[str] = "llama_2_13b_sql",
     ):
+        """Constructs a prompt and requests a SQL query from Replicate's API.
+
+        :param dataset: The dataset item to request.
+        :type dataset: Dataset
+        :return: The constructed SQL request.
+        :rtype: str
+        """
         
         # assumes the prompt is in the dataset, contained within 'tuning_format'
         try:

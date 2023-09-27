@@ -398,12 +398,12 @@ class SQLData:
         update_class_dataset: bool = True,
     ) -> Optional[Union[DatasetDict, None]]:
         """Preprocesses the data by applying the following functions to the dataset:
-            - _blanket_answer_syntax(dataset)
-            - _compute_table_count(dataset)
-            - _abstract_column_types(dataset)
-            - _identify_duplicate_create_table(dataset)
-            - _populate_data(dataset)
-            - validate_query(dataset)
+            - _blanket_answer_syntax(dataset): applies broad syntax corrections common to the dataset
+            - _compute_table_count(dataset): computes the number of tables created within the context of a datum
+            - _abstract_column_types(dataset): abstracts the column types for every CREATE table statement from the context of a datum
+            - _identify_duplicate_create_table(dataset): identifies whether or not a CREATE table statement is duplicated within the context of a datum
+            - _populate_data(dataset): creates a dictionary containing randomly generated data based upon the provided column types for a CREATE table statement from the context of a datum
+            - validate_query(dataset): validates the query against the provided filler data and returns the query result
 
         :param dataset_name: The name of the dataset to preprocess
         :type dataset_name: str
@@ -481,6 +481,23 @@ class SQLData:
         drop_empty_query_result: bool = False,
         update_class_dataset: bool = True,
     ) -> Optional[Union[DatasetDict, None]]:
+        """Filters the data by applying the following functions to the dataset:
+            - drop_invalid_query: filters out invalid queries where the query type is not supported by the CREATE context
+            - drop_duplicate_tables: filters out duplicate CREATE table statements within the context of a datum
+            - drop_empty_query_result: filters out queries that return an empty result
+
+        :param dataset_name: The name of the dataset to filter
+        :type dataset_name: str
+        :param drop_invalid_query: Whether or not to filter out invalid queries where the query type is not supported by the CREATE context, defaults to True
+        :type drop_invalid_query: bool, optional
+        :param drop_duplicate_tables: Whether or not to filter out duplicate CREATE table statements within the context of a datum, defaults to True
+        :type drop_duplicate_tables: bool, optional
+        :param drop_empty_query_result: Whether or not to filter out queries that return an empty result, defaults to False
+        :type drop_empty_query_result: bool, optional
+        :param update_class_dataset: Whether or not to update the class instance self.data = {"dataset_name": dataset}, defaults to True
+        :type update_class_dataset: bool, optional
+        """
+
         if dataset_name not in self.data.keys():
             logger.warning(
                 f"The dataset {dataset_name} has not been loaded. Loading the dataset with the function load_data(dataset_name)."
