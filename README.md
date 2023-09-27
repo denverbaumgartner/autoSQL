@@ -1,5 +1,5 @@
 # autoSQL
-A repo focused on the efficient use of LLMs for generating SQL code from natural language prompts. Details regarding the `SQLData` class can be found [here](https://github.com/denverbaumgartner/autoSQL/tree/main/autoSQL/autosql/data). 
+A repo focused on the efficient use of LLMs for generating SQL code from natural language prompts. Details regarding the `SQLData` class can be found [here](https://github.com/denverbaumgartner/autoSQL/tree/main/autoSQL/autosql/data). Details regarding tuning can be found [here](https://github.com/denverbaumgartner/autoSQL/tree/main/autoSQL/autosql/tuning). Details regarding `SQLPredict` class can be found [here](https://github.com/denverbaumgartner/autoSQL/blob/main/autoSQL/autosql/predict/README.md). Details regarding the `SQLEval` class can be found [here](https://github.com/denverbaumgartner/autoSQL/blob/main/autoSQL/autosql/eval/README.md), and it is recommended that users read the `eval.ipynb` notebook for a quick tutorial on how to use the `SQLEval` class.
 
 ### Directory 
 
