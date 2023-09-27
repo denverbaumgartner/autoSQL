@@ -112,3 +112,4 @@ In this tree:
 - **[AGE]**: Represents the column name involved in the comparison.
 - **[LITERAL: 25]**: Represents the value being compared against.
 - **[OPERATOR: >]**: Represents the comparison operator.
+

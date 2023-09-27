@@ -380,7 +380,7 @@ class SQLData:
         """
 
         formatted_data = {
-            "prompt": 'context: ' + dataset['context'] + ', question: ' + dataset['question'],
+            "prompt": '[INST] <<SYS>>\nContext contains the relevant SQL tables, respond with the SQL query that answers the Question.\n<</SYS>>\n\nContext: ' + dataset['context'] + '\n\nQuestion: ' + dataset['question'] + '[/INST]\n\n',
             "completion": dataset['answer']
         } # TODO: occassionally, a json character (\) will be added around quotation marks, which may impact the data quality. we should determine if this is resolved by the time we are ready to use this data for tuning
 
