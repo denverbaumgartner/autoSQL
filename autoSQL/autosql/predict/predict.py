@@ -12,7 +12,8 @@ from replicate import Client as rc
 import sqlglot
 from datasets import DatasetDict, Dataset
 
-from .helper import Prompts
+# from .helper import Prompts
+from helper import Prompts
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,7 @@ class SQLPredict:
         self, 
         dataset: Dataset,
         model_name: Optional[str] = "llama_2_13b_sql",
+        column_name: Optional[str] = "replicate_inference",
     ):
         """Constructs a prompt and requests a SQL query from Replicate's API.
 
@@ -284,6 +286,6 @@ class SQLPredict:
         try:
             prompt = json.loads(dataset['tuning_format'])['prompt']
             inference = self.replicate_sql_request(prompt, model_name=model_name)
-            return {"replicate_inference": inference}
+            return {column_name: inference}
         except Exception as e:
             logger.warning(f"Replicate request failed with error: {e}")
