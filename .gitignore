@@ -163,3 +163,5 @@ cython_debug/
 
 drafting.ipynb
 local_data/
+
+*.txt

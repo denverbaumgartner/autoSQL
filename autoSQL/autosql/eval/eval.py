@@ -123,9 +123,39 @@ class SQLEval:
         except Exception as e:
             logger.warning(f"Result check failed with error: {e}")
             raise e
+        
+    @staticmethod
+    def custom_inference_result_check(
+        dataset: Dataset,
+        column_result_label: str="column_result",
+        outcome_label: str="model_correct",
+    ): 
+        """Checks the results of the inference against the correct result and returns the result of the check
+
+        :param dataset: The dataset item to check.
+        :type dataset: dict
+        :return: A dictionary containing the result of the check
+        :rtype: dict 
+        """
+        
+        try: 
+            result = dataset[column_result_label]
+            correct_result = dataset['query_result']
+
+            dataset[outcome_label] = result == correct_result
+            return dataset
+        except Exception as e:
+            logger.warning(f"Result check failed with error: {e}")
+            raise e
 
     @staticmethod        
-    def replicate_response_parser(dataset): # TODO: update to allow for regex values to be passed in
+    def replicate_response_parser(
+        dataset,
+        inference_label: str="replicate_inference",
+        result_label: str="replicate_result",
+        filler_data_label: str="filler_data",
+        valid_label: str="replicate_valid",
+    ): # TODO: update to allow for regex values to be passed in
         """Parses the replicate inference to find a valid SQL query and returns the parsed query and result
 
         currently, utilizes the regex pattern: r"SELECT.*?(?=\n|\[/|,\[INST\])"
@@ -137,10 +167,10 @@ class SQLEval:
         """
 
         
-        replicate_inference = dataset['replicate_inference']
-        replicate_result = dataset['replicate_result']
+        replicate_inference = dataset[inference_label]
+        replicate_result = dataset[result_label]
         
-        tables = json.loads(dataset['filler_data'])
+        tables = json.loads(dataset[filler_data_label])
         
         pattern = r"SELECT.*?(?=\n|\[/|,\[INST\])"
         matches = re.findall(pattern, replicate_inference, re.DOTALL)
@@ -159,13 +189,13 @@ class SQLEval:
                 pass
 
         if valid_result and valid_statement: 
-            dataset['replicate_inference'] = valid_statement 
-            dataset['replicate_result'] = valid_result 
-            dataset['replicate_valid'] = True
+            dataset[inference_label] = valid_statement 
+            dataset[result_label] = valid_result 
+            dataset[valid_label] = True
         else: 
-            dataset['replicate_inference'] = replicate_inference 
-            dataset['replicate_result'] = replicate_result
-            dataset['replicate_valid'] = False
+            dataset[inference_label] = replicate_inference 
+            dataset[result_label] = replicate_result
+            dataset[valid_label] = False
         return dataset
 
         
