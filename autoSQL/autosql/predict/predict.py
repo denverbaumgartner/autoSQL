@@ -293,6 +293,7 @@ class SQLPredict:
         dataset: Dataset,
         model_name: Optional[str] = "llama_2_13b_sql",
         column_name: Optional[str] = "replicate_inference",
+        prompt_type: Optional[str] = "tuning_format",
     ):
         """Constructs a prompt and requests a SQL query from Replicate's API.
 
@@ -301,10 +302,15 @@ class SQLPredict:
         :return: The constructed SQL request.
         :rtype: str
         """
+
+        if prompt_type == "tuning_format":
+            prompt = json.loads(dataset['tuning_format'])['prompt']
+        if prompt_type == "basic_text_generation":
+            prompt = self.basic_text_generation_prompt(dataset['context'], dataset['question'])
         
         # assumes the prompt is in the dataset, contained within 'tuning_format'
         try:
-            prompt = json.loads(dataset['tuning_format'])['prompt']
+            # prompt = json.loads(dataset['tuning_format'])['prompt']
             inference = self.replicate_sql_request(prompt, model_name=model_name)
             return {column_name: inference}
         except Exception as e:
@@ -375,6 +381,7 @@ class SQLPredict:
         context_column_name: Optional[str] = "context",
         question_column_name: Optional[str] = "question",
         api_key: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
     ):
         """Constructs a prompt and requests a SQL query from a generic API."""
         
