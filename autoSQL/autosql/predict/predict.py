@@ -1,5 +1,6 @@
 import json
 import logging
+import requests
 from _decimal import Decimal
 from typing import Optional, Dict, List, Union
 
@@ -25,6 +26,7 @@ class SQLPredict:
         self, 
         openai_api_key: str,
         replicate_api_key: str,
+        hugging_face_api_key: Optional[str] = None,
     ) -> None:
         """Initialize the class"""
 
@@ -33,8 +35,12 @@ class SQLPredict:
         self.openai = openai
         self.prompts = Prompts()
         self.rc = rc(replicate_api_key)
+        self.hf_key = hugging_face_api_key
 
         self.replicate_models = {}
+        self.openai_api_models = {}
+
+        self.model_endpoints = {}
 
     @classmethod
     def from_replicate_model(
@@ -86,6 +92,20 @@ class SQLPredict:
 
         self.replicate_models[model_name] = model_id
 
+    def add_model_endpoint(
+        self,
+        model_name: str,
+        model_endpoint: str,
+    ) -> None:
+        """Adds a model endpoint to the class.
+        
+        :param model_name: The name of the model.
+        :type model_name: str
+        :param model_endpoint: The endpoint of the model.
+        :type model_endpoint: str
+        """
+
+        self.model_endpoints[model_name] = model_endpoint
 
     #########################################
     # Request Construction Methods          #
@@ -289,3 +309,79 @@ class SQLPredict:
             return {column_name: inference}
         except Exception as e:
             logger.warning(f"Replicate request failed with error: {e}")
+
+    def basic_text_generation_prompt(
+        self, 
+        context: str,
+        question: str,
+    ) -> str: 
+        """Constructs a basic text generation prompt.
+        
+        :param context: The context of the SQL query.
+        :type context: str
+        """
+
+        prompt = "Context details the databse: " + context + " # " "Question to answer: " + question + " # " + "Answer as a SQL query: "
+        return prompt
+
+    def basic_text_generation_request(
+        self, 
+        context: str,
+        question: str,
+        model_name: str,
+        api_key: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """Constructs a basic text generation request.
+
+        :param context: The context of the SQL query.
+        :type context: str
+        :param question: The question of the SQL query.
+        :type question: str
+        :param model_name: The name of the model.
+        :type model_name: str
+        :param api_key: The API key to use for the request, defaults to None. Defaults to class default.
+        :type api_key: Optional[str], optional
+        :param headers: The headers to use for the request, defaults to None. Defaults to class default.
+        :type headers: Optional[Dict[str, str]], optional
+        :return: The constructed SQL request.
+        :rtype: str
+        """
+        
+        if api_key is None:
+            api_key = self.hf_key
+
+        if headers is None:
+            headers = {"Authorization": api_key}
+
+        prompt = self.basic_text_generation_prompt(context, question)
+        
+        try: 
+            response = requests.post(
+                self.model_endpoints[model_name], 
+                headers=headers,
+                json={"inputs": prompt},
+            )
+            return response.json()
+        except Exception as e:
+            logger.warning(f"Basic text generation request failed with error: {e}")
+            raise e
+        
+    def basic_text_generation_dataset_request(
+        self, 
+        dataset: Dataset,
+        model_name: str,
+        response_column_name: str,
+        context_column_name: Optional[str] = "context",
+        question_column_name: Optional[str] = "question",
+        api_key: Optional[str] = None,
+    ):
+        """Constructs a prompt and requests a SQL query from a generic API."""
+        
+        try:
+            context = dataset[context_column_name]
+            question = dataset[question_column_name]
+            inference = self.basic_text_generation_request(context, question, model_name, api_key)
+            return {response_column_name: inference}
+        except Exception as e:
+            logger.warning(f"Basic text generation request failed with error: {e}")
