@@ -17,6 +17,7 @@ flask = "^2.3.3"
 openai = "^0.28.1"
 matplotlib = "^3.8.0"
 matplotlib-venn = "^0.11.9"
+nltk = "^3.8.1"
 
 
 [tool.poetry.group.dev.dependencies]
