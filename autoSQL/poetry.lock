@@ -1146,18 +1146,18 @@ tqdm = ["tqdm"]
 
 [[package]]
 name = "huggingface-hub"
-version = "0.17.2"
+version = "0.18.0"
 description = "Client library to download and publish models, datasets and other repos on the huggingface.co hub"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "huggingface_hub-0.17.2-py3-none-any.whl", hash = "sha256:fc4a36640b2b51dced0da37a18420572145a0dd528f46715afe6c1f955cc8533"},
-    {file = "huggingface_hub-0.17.2.tar.gz", hash = "sha256:51b0257ff75b422d3cb0662db799c7a03fdc72b8f84a09ce3ff7655dca1958b2"},
+    {file = "huggingface_hub-0.18.0-py3-none-any.whl", hash = "sha256:ee0b6b68acbf6aeb6d083ea081e981c277a1104b82ab67fdf6780ff5396830af"},
+    {file = "huggingface_hub-0.18.0.tar.gz", hash = "sha256:10eda12b9c1cfa800b4b7c096b3ace8843734c3f28d69d1c243743fb7d7a2e81"},
 ]
 
 [package.dependencies]
 filelock = "*"
-fsspec = "*"
+fsspec = ">=2023.5.0"
 packaging = ">=20.9"
 pyyaml = ">=5.1"
 requests = "*"
@@ -4039,4 +4039,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "5266c5cfe090b8571c4e755d1c727bb0a18e055792d86f13421a0cb0c028293e"
+content-hash = "5b2e23a751d83471c285874723713230270afdeda932c3061c4c620f3f741500"
