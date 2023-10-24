@@ -18,7 +18,8 @@ from sqlglot.errors import (
     OptimizeError,
 )
 
-from .helpers import DataGenerator, create_gist
+#from .helpers import DataGenerator, create_gist
+from helpers import DataGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class SQLData:
         self.data = {}
         self.data_generator = DataGenerator()
         self.uploaded_gists = {}
+        self.write_token = None
 
     def __repr__(self):
         items = ("{}={!r}".format(k, self.__dict__[k]) for k in self.__dict__)
@@ -563,6 +565,49 @@ class SQLData:
     #################################
     # Data Loading Functions        #
     #################################
+
+    def hub_upload(
+        self, 
+        repo_id: str,
+        token: Optional[str] = None,
+        dataset: Optional[DatasetDict] = None,
+        dataset_name: Optional[str] = None,
+    ): 
+        """Uploads a dataset to the HuggingFace Hub
+        
+        :param dataset_name: The name of the dataset to upload
+        :type dataset_name: str
+        :param token: The HuggingFace Hub token to use for authentication, defaults to None
+        :type token: Optional[str], optional
+        """
+        
+        if token is None:
+            if self.write_token is None:
+                logger.warning(
+                    f"No write token has been provided. Provide a write token with the function hub_login(token)."
+                )
+                return
+            else:
+                token = self.write_token
+        else: 
+            if self.write_token is None:
+                self.write_token = token
+
+        if dataset is None:
+            try:
+                dataset = self.data[dataset_name]
+            except KeyError:
+                logger.warning(
+                    f"The dataset {dataset_name} has not been loaded. Load the dataset with the function load_data(dataset_name)."
+                )
+                # self.load_data(dataset_name) # TODO: #1
+                return
+            
+        try:
+            dataset.push_to_hub(repo_id, token=token)
+        except Exception as e:
+            logger.error(f"An error occured while trying to upload the dataset: {e}")
+            raise
 
     def create_jsonl_object(
         self, 

@@ -1,0 +1,6 @@
+[submodule "autosql/autosql/eval/test-suite-sql-eval"]
+	path = autosql/autosql/eval/test-suite-sql-eval
+	url = https://github.com/denverbaumgartner/test-suite-sql-eval.git
+[submodule "autosql/autosql/eval/TestSuiteEval"]
+	path = autosql/autosql/eval/TestSuiteEval
+	url = https://github.com/denverbaumgartner/TestSuiteEval.git
