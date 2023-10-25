@@ -161,7 +161,7 @@ cython_debug/
 *.DS_Store
 *.pem
 
-drafting.ipynb
+# drafting.ipynb may as well keep this as this is where the real work is done
 local_data/
 
 *.txt
